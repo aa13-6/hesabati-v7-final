@@ -144,7 +144,50 @@ function closeModal(){document.getElementById('modalHost').innerHTML='';}
 function handleBack(){if(document.getElementById('modalback')){closeModal();return}if(view==='ledger'){view='accounts';activeId=null}else if(view==='types'){view='settings'}else if(view==='settings'){view='accounts'}else{return}render()}
 function showAccountMenu(id){const a=data.accounts.find(x=>x.id===id);if(!a)return;openModal(`<h3>${esc(a.name)}</h3><button class="menuitem" id="renameAccount">✎ إعادة التسمية</button><button class="menuitem" id="deleteAccount" style="color:var(--red)">♲ حذف الحساب</button><button class="secondary wide" id="cancelMenu">إلغاء</button>`);document.getElementById('renameAccount').onclick=()=>{closeModal();openRename(id)};document.getElementById('deleteAccount').onclick=()=>{closeModal();openConfirm('حذف الحساب',`هل تريد حذف «${a.name}» ؟`,()=>{data.accounts=data.accounts.filter(x=>x.id!==id);if(activeId===id){activeId=null;view='accounts'}save();render()})};document.getElementById('cancelMenu').onclick=closeModal}
 function openRename(id){const a=data.accounts.find(x=>x.id===id);openModal(`<h3>إعادة تسمية</h3><div class="field"><input id="renameValue" value="${esc(a.name)}"><label>الاسم :-</label></div><div class="modalbuttons"><button class="primary" id="saveRename">حفظ</button><button class="secondary" id="cancelRename">إلغاء</button></div>`);document.getElementById('saveRename').onclick=()=>{const n=document.getElementById('renameValue').value.trim();if(!n){alert('اكتب اسم');return}a.name=n;save();closeModal();render()};document.getElementById('cancelRename').onclick=closeModal}
-function openEntry(id=null){const a=account();const old=id?(a.entries||[]).find(e=>e.id===id):null;const date=old?.date||todayISO();const options=data.types.map(t=>`<option ${t===(old?.type||data.types[0])?'selected':''} value="${esc(t)}">${esc(t)}</option>`).join('');openModal(`<h3>${old?'تعديل حركة':'إضافة حركة'} — ${esc(a.name)}</h3><form id="entryForm"><div class="field"><select id="entryDay">${['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'].map(d=>`<option ${d===dayName(date)?'selected':''}>${d}</option>`).join('')}</select><label>اليوم :-</label></div><div class="field"><input id="entryDate" type="date" value="${date}" required><label>التاريخ :-</label></div><div class="field"><select id="entryType">${options}</select><label>النوع :-</label></div><div class="field"><input id="entryCount" type="number" min="0" step="1" value="${old?esc(old.count):''}" required><label>العدد :-</label></div><div class="field"><input id="entryPrice" type="number" min="0" step="1" value="${old?esc(old.price):''}" required><label>السعر :-</label></div><div class="field"><input id="entryPaid" type="number" min="0" step="1" value="${old?esc(old.paid):''}" required><label>مسلم :-</label></div><div class="field"><input id="entryRemaining" readonly value="${money((Number(old?.price)||0)-(Number(old?.paid)||0))}"><label>باقي :-</label></div><div class="modalbuttons"><button class="primary" type="submit">حفظ</button><button class="secondary" type="button" id="cancelEntry">إلغاء</button></div></form>`);const dateEl=document.getElementById('entryDate'),dayEl=document.getElementById('entryDay');dateEl.onchange=()=>{if(dateEl.value)dayEl.value=dayName(dateEl.value)};const update=()=>{document.getElementById('entryRemaining').value=money((Number(document.getElementById('entryPrice').value)||0)-(Number(document.getElementById('entryPaid').value)||0))};document.getElementById('entryPrice').oninput=update;document.getElementById('entryPaid').oninput=update;document.getElementById('cancelEntry').onclick=closeModal;document.getElementById('entryForm').onsubmit=e=>{e.preventDefault();const p=Number(document.getElementById('entryPrice').value),paid=Number(document.getElementById('entryPaid').value);if(paid>p){if(!confirm('المسلم أكبر من السعر، متابعة؟'))return}if(!Number.isFinite(p)||p<=0){alert('السعر يجب أن يكون أكبر من صفر');return}const entry={id:old?.id||('e'+Date.now()),day:dayEl.value,date:dateEl.value,createdAt:old?.createdAt||localDateTimeNow(),type:document.getElementById('entryType').value,count:Number(document.getElementById('entryCount').value)||0,price:p,paid,basePaid:old?(Number(old.basePaid??old.paid)||0):paid};if(old){a.entries[a.entries.findIndex(e=>e.id===old.id)]=entry}else{a.entries.push(entry)}recalculateAdvance(a);save();closeModal();render()}}
+function openEntry(id=null){
+  const a=account();
+  const old=id?(a.entries||[]).find(e=>e.id===id):null;
+  const date=old?.date||todayISO();
+  const options=data.types.map(t=>`<option ${t===(old?.type||data.types[0])?'selected':''} value="${esc(t)}">${esc(t)}</option>`).join('');
+  openModal(`<h3>${old?'تعديل حركة':'إضافة حركة'} — ${esc(a.name)}</h3><form id="entryForm"><div class="field"><select id="entryDay">${['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'].map(d=>`<option ${d===dayName(date)?'selected':''}>${d}</option>`).join('')}</select><label>اليوم :-</label></div><div class="field"><input id="entryDate" type="date" value="${date}" required><label>التاريخ :-</label></div><div class="field"><select id="entryType">${options}</select><label>النوع :-</label></div><div class="field"><input id="entryCount" type="number" min="0" step="1" value="${old!=null?esc(old.count):'0'}" required><label>العدد :-</label></div><div class="field"><input id="entryPrice" type="number" min="0" step="1" value="${old!=null?esc(old.price):'0'}" required><label>السعر :-</label></div><div class="field"><input id="entryPaid" type="number" min="0" step="1" value="${old!=null?esc(old.paid):'0'}" required><label>مسلم :-</label></div><div class="field"><input id="entryRemaining" readonly value="${money((Number(old?.price)||0)-(Number(old?.paid)||0))}"><label>باقي :-</label></div><div class="modalbuttons"><button class="primary" type="submit">حفظ</button><button class="secondary" type="button" id="cancelEntry">إلغاء</button></div></form>`);
+  const dateEl=document.getElementById('entryDate'),dayEl=document.getElementById('entryDay');
+  dateEl.onchange=()=>{if(dateEl.value)dayEl.value=dayName(dateEl.value)};
+  const update=()=>{document.getElementById('entryRemaining').value=money((Number(document.getElementById('entryPrice').value)||0)-(Number(document.getElementById('entryPaid').value)||0))};
+  document.getElementById('entryPrice').oninput=update;
+  document.getElementById('entryPaid').oninput=update;
+  document.getElementById('cancelEntry').onclick=closeModal;
+  document.getElementById('entryForm').onsubmit=e=>{
+    e.preventDefault();
+    const p=Number(document.getElementById('entryPrice').value);
+    const paid=Number(document.getElementById('entryPaid').value);
+    const cnt=Number(document.getElementById('entryCount').value);
+    if(!Number.isFinite(p) || p<0){alert('السعر يجب أن يكون أكبر من أو يساوي صفر');return}
+    if(!Number.isFinite(paid) || paid<0){alert('المسلم يجب أن يكون أكبر من أو يساوي صفر');return}
+    if(!Number.isFinite(cnt) || cnt<0){alert('العدد يجب أن يكون أكبر من أو يساوي صفر');return}
+    if(paid>p){if(!confirm('المسلم أكبر من السعر، متابعة؟'))return}
+    const entry={
+      id:old?.id||('e'+Date.now()),
+      day:dayEl.value,
+      date:dateEl.value,
+      createdAt:old?.createdAt||localDateTimeNow(),
+      type:document.getElementById('entryType').value,
+      count:cnt||0,
+      price:p,
+      paid:paid,
+      basePaid:paid
+    };
+    if(old){
+      const idx=a.entries.findIndex(e=>e.id===old.id);
+      if(idx>=0) a.entries[idx]=entry;
+    }else{
+      a.entries.push(entry)
+    }
+    recalculateAdvance(a);
+    save();
+    closeModal();
+    render()
+  }
+}
 function confirmDeleteEntry(id){openConfirm('تأكيد حذف الحركة','هل أنت متأكد من حذف هذه الحركة؟',()=>{const a=account();a.entries=a.entries.filter(e=>e.id!==id);save();render()})}
 function openConfirm(title,body,yes){openModal(`<h3 style="text-align:center">${esc(title)}</h3><p style="text-align:center">${esc(body)}</p><div class="modalbuttons"><button class="danger" id="confirmYes">تأكيد</button><button class="secondary" id="confirmNo">إلغاء</button></div>`);document.getElementById('confirmYes').onclick=()=>{closeModal();yes()};document.getElementById('confirmNo').onclick=closeModal}
 function openType(index=null){const old=index===null?'':data.types[index];openModal(`<h3>${index===null?'إضافة نوع جديد':'تعديل النوع'}</h3><div class="field"><input id="typeValue" value="${esc(old)}"><label>النوع :-</label></div><div class="modalbuttons"><button class="primary" id="typeSave">حفظ</button><button class="secondary" id="typeCancel">إلغاء</button></div>`);document.getElementById('typeSave').onclick=()=>{const v=document.getElementById('typeValue').value.trim();if(!v){alert('أدخل اسم النوع');return}if(index===null)data.types.push(v);else data.types[index]=v;save();closeModal();render()};document.getElementById('typeCancel').onclick=closeModal}
